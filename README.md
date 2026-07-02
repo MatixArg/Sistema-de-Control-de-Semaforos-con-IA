@@ -81,9 +81,9 @@ prioridad = (cantidad_vehiculos * 2) + (tiempo_espera_maximo * 1.5)
 ## Roadmap
 
 - [x] Estructura del proyecto y planificación
-- [ ] Simulador base con semáforos y vehículos
-- [ ] Algoritmo de priorización
-- [ ] Visualización web en tiempo real
+- [x] Simulador base con semáforos y vehículos
+- [x] Algoritmo de priorización
+- [x] Visualización web en tiempo real
 - [ ] Detección de vehículos con OpenCV + YOLO
 - [ ] Integración con controladores reales
 
