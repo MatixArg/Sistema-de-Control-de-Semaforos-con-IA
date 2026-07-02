@@ -14,8 +14,8 @@ interseccion = Interseccion()
 controlador = Controlador()
 
 DT = 0.5
-PROBABILIDAD_SPAWN = 0.3
-TASA_LIBERACION = 2
+PROBABILIDAD_SPAWN = 0.15
+TASA_LIBERACION = 1
 DURACION_AMARILLO = 2.0
 
 interseccion.semaforo_ns.cambiar_estado(Semaforo.VERDE)
