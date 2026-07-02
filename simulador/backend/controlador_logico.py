@@ -134,8 +134,13 @@ class ControladorLogico:
 
     def _deberia_transicionar(self, acceso_actual, tiempo_verde, tiempo_estimado, frame_ia, pesado_cruzando=False):
         """Evalua si es momento de cambiar de acceso en verde."""
-        # Nunca cortar antes del minimo
+        # Nunca cortar antes del minimo (salvo que el carril este vacio y haya otros esperando)
         if tiempo_verde < config.MIN_GREEN:
+            if self.interseccion.contar_vehiculos(acceso_actual) == 0:
+                for a in self.interseccion.accesos:
+                    if a != acceso_actual and self.interseccion.contar_vehiculos(a) > 0:
+                        self._log(f"⏩ Carril {acceso_actual} vacio, cambiando a carril con trafico")
+                        return True
             return False
 
         # Si hay vehiculo pesado cruzando, mantener verde (CASO 5 flujo absoluto)
