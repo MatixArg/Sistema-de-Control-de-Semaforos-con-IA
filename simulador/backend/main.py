@@ -1,3 +1,4 @@
+import random
 import threading
 import time
 from flask import Flask, send_from_directory
@@ -77,6 +78,17 @@ def ejecutar_tick(interseccion, ia, controlador, nombre):
 
     # 4. Procesar frame en el controlador logico (aplica todas las reglas)
     controlador.procesar_frame(frame, config.DT)
+
+    # 5. Simular paso de vehiculos por el carril en verde
+    acceso_verde = interseccion.acceso_verde
+    if acceso_verde and interseccion.semaforos[acceso_verde].es_verde():
+        for _ in range(config.TASA_LIBERACION):
+            cola = interseccion.carriles[acceso_verde]
+            if cola:
+                cola.popleft()
+                otros = [a for a in interseccion.accesos if a != acceso_verde]
+                if otros:
+                    interseccion.agregar_vehiculo(random.choice(otros), tipo="auto")
 
     return frame
 
