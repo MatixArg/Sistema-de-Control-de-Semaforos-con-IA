@@ -16,7 +16,7 @@ int_t = Interseccion(ACCESOS_T)
 ctrl_t = Controlador(ACCESOS_T)
 
 DT = 0.5
-PROBABILIDAD_SPAWN = 0.15
+PROBABILIDAD_SPAWN = 0.05
 TASA_LIBERACION = 1
 DURACION_AMARILLO = 2.0
 
@@ -47,8 +47,11 @@ def ejecutar_tick(interseccion, controlador):
             interseccion.acceso_proximo = None
     elif semaforo_actual.estado == Semaforo.VERDE:
         for _ in range(TASA_LIBERACION):
-            if interseccion.carriles[acceso_actual]:
-                interseccion.carriles[acceso_actual].popleft()
+            cola = interseccion.carriles[acceso_actual]
+            if cola:
+                cola.popleft()
+                otros = [a for a in interseccion.accesos if a != acceso_actual]
+                interseccion.agregar_vehiculo(random.choice(otros))
 
         decision = controlador.decidir(interseccion)
         if decision != acceso_actual:

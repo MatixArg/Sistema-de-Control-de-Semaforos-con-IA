@@ -152,19 +152,27 @@ function dibujarMarcas(ctx, norte) {
     ctx.setLineDash([]);
 }
 
+const COLORES_AUTOS = ['#e94560', '#4ecdc4', '#ffe66d', '#95e1d3', '#f38181', '#aa96da', '#fcbad3', '#a8d8ea', '#ff9a76', '#6c5b7b'];
+
 function dibujarVehiculosCarril(ctx, cantidad, sx, sy, dx, dy, girar) {
     const maxVis = Math.min(cantidad, 8);
+    const numColores = COLORES_AUTOS.length;
     for (let i = 0; i < maxVis; i++) {
         const off = (i + 1) * SEP;
         const x = sx + dx * off;
         const y = sy + dy * off;
+        const colorBase = COLORES_AUTOS[i % numColores];
         ctx.save();
         ctx.translate(x, y);
         if (girar) ctx.rotate(Math.PI / 2);
-        ctx.fillStyle = '#e94560';
-        ctx.fillRect(-6, -4, 12, 8);
-        ctx.fillStyle = '#ff6b81';
-        ctx.fillRect(-4, -3, 8, 6);
+        ctx.fillStyle = colorBase;
+        ctx.fillRect(-7, -5, 14, 10);
+        ctx.fillStyle = '#ffffff30';
+        ctx.fillRect(-4, -4, 8, 3);
+        ctx.fillStyle = '#00000040';
+        ctx.fillRect(-1, -5, 2, 10);
+        ctx.fillStyle = '#00000030';
+        ctx.fillRect(-7, 3, 14, 2);
         ctx.restore();
         if (i === maxVis - 1 && cantidad > maxVis) {
             ctx.fillStyle = '#aaa';
@@ -198,16 +206,6 @@ function dibujar4() {
     ctx.lineWidth = 2;
     ctx.strokeRect(CX - MITAD, CY - MITAD, ANCHO_CALLE, ANCHO_CALLE);
 
-    const semPos = {
-        N: { x: CX, y: CY - MITAD - 15, v: true },
-        S: { x: CX, y: CY + MITAD + 15, v: true },
-        E: { x: CX + MITAD + 15, y: CY, v: false },
-        W: { x: CX - MITAD - 15, y: CY, v: false }
-    };
-    for (const [a, p] of Object.entries(semPos)) {
-        if (d.accesos[a]) dibujarSemaforo(ctx, p.x, p.y, d.accesos[a], p.v);
-    }
-
     const vehCfg = {
         N: { sx: CX, sy: CY - MITAD, dx: 0, dy: -1, girar: false },
         S: { sx: CX, sy: CY + MITAD, dx: 0, dy: 1, girar: false },
@@ -216,6 +214,16 @@ function dibujar4() {
     };
     for (const [a, c] of Object.entries(vehCfg)) {
         if (d.accesos[a]) dibujarVehiculosCarril(ctx, d.accesos[a].vehiculos, c.sx, c.sy, c.dx, c.dy, c.girar);
+    }
+
+    const semPos = {
+        N: { x: CX - 15, y: CY - MITAD - 22, v: true },
+        S: { x: CX + 15, y: CY + MITAD + 22, v: true },
+        E: { x: CX + MITAD + 22, y: CY + 15, v: false },
+        W: { x: CX - MITAD - 22, y: CY - 15, v: false }
+    };
+    for (const [a, p] of Object.entries(semPos)) {
+        if (d.accesos[a]) dibujarSemaforo(ctx, p.x, p.y, d.accesos[a], p.v);
     }
 
     dibujarRotulos(ctx, [
@@ -239,15 +247,6 @@ function dibujarT() {
     ctx.lineWidth = 2;
     ctx.strokeRect(CX - MITAD, CY - MITAD, ANCHO_CALLE, ANCHO_CALLE);
 
-    const semPos = {
-        S: { x: CX, y: CY + MITAD + 15, v: true },
-        E: { x: CX + MITAD + 15, y: CY, v: false },
-        W: { x: CX - MITAD - 15, y: CY, v: false }
-    };
-    for (const [a, p] of Object.entries(semPos)) {
-        if (d.accesos[a]) dibujarSemaforo(ctx, p.x, p.y, d.accesos[a], p.v);
-    }
-
     const vehCfg = {
         S: { sx: CX, sy: CY + MITAD, dx: 0, dy: 1, girar: false },
         E: { sx: CX + MITAD, sy: CY, dx: 1, dy: 0, girar: true },
@@ -255,6 +254,15 @@ function dibujarT() {
     };
     for (const [a, c] of Object.entries(vehCfg)) {
         if (d.accesos[a]) dibujarVehiculosCarril(ctx, d.accesos[a].vehiculos, c.sx, c.sy, c.dx, c.dy, c.girar);
+    }
+
+    const semPos = {
+        S: { x: CX + 15, y: CY + MITAD + 22, v: true },
+        E: { x: CX + MITAD + 22, y: CY + 15, v: false },
+        W: { x: CX - MITAD - 22, y: CY - 15, v: false }
+    };
+    for (const [a, p] of Object.entries(semPos)) {
+        if (d.accesos[a]) dibujarSemaforo(ctx, p.x, p.y, d.accesos[a], p.v);
     }
 
     dibujarRotulos(ctx, [
