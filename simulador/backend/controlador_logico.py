@@ -26,6 +26,9 @@ class ControladorLogico:
         self.en_ventana_ciega = False
         self.tiempo_ventana_ciega = 0.0
 
+        # Cola de emergencias para evitar ping-pong con multiples ambulancias
+        self.emergencias_encoladas = []
+
     def _log(self, msg):
         if msg != self.ultimo_evento_log:
             print(f"  ⚙️ CTRL: {msg}")
@@ -40,11 +43,28 @@ class ControladorLogico:
         total = frame_ia.get("total_vehiculos", 0)
 
         # ---- PASO 1: CASO 1 - EMERGENCIA (prioridad mas alta) ----
-        acceso_emergencia = self.detector.escanear(frame_ia, inter)
-        if acceso_emergencia and inter.acceso_verde != acceso_emergencia:
-            if inter.semaforos[acceso_emergencia].es_rojo():
+        # Detectar multiples emergencias
+        while True:
+            acceso_emergencia = self.detector.escanear(frame_ia, inter)
+            if not acceso_emergencia:
+                break
+            if inter.acceso_verde == acceso_emergencia:
+                break
+            if not inter.semaforos[acceso_emergencia].es_rojo():
+                break
+
+            # Si YA estamos en transicion por otra emergencia, encolar
+            if self.maquina.transicionando_emergencia:
+                if acceso_emergencia not in self.emergencias_encoladas:
+                    self.emergencias_encoladas.append(acceso_emergencia)
+                    self._log(f"🚨 ENCOLANDO emergencia: {acceso_emergencia} "
+                              f"(espera mientras se atiende {self.maquina.emergencia_pendiente})")
+                break
+            else:
+                # Primera emergencia: interrumpir inmediatamente
                 self.maquina.interrumpir_para_emergencia(acceso_emergencia)
                 self._aplicar_verde_inmediato(acceso_emergencia)
+                self._log(f"🚨 INTERRUPCION: {acceso_emergencia} VERDE INMEDIATO")
                 return
 
         # ---- PASO 2: ACTUALIZAR MONITOR DE OBSTRUCCION ----
@@ -219,6 +239,19 @@ class ControladorLogico:
     def _aplicar_verde(self, acceso):
         """Aplica el estado VERDE a un acceso y ROJO a los demas."""
         inter = self.interseccion
+
+        # Verificar si la ultima transicion fue por emergencia servida
+        if self.maquina.emergencia_servida:
+            self.maquina.emergencia_servida = False
+            # Procesar cola de emergencias pendientes
+            if self.emergencias_encoladas:
+                prox_emergencia = self.emergencias_encoladas.pop(0)
+                self._log(f"🚨 Procesando emergencia encolada: {prox_emergencia}")
+                if inter.semaforos[prox_emergencia].es_rojo():
+                    self.maquina.interrumpir_para_emergencia(prox_emergencia)
+                    self._aplicar_verde_inmediato(prox_emergencia)
+                    return
+
         for a in inter.accesos:
             if a == acceso:
                 if not inter.semaforos[a].es_verde():

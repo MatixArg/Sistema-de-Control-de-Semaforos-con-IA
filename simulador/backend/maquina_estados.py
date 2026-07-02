@@ -23,6 +23,7 @@ class MaquinaEstados:
         self.acceso_actual = None       # acceso que esta en VERDE
         self.acceso_siguiente = None    # proximo acceso a poner en VERDE
         self.emergencia_pendiente = None
+        self.emergencia_servida = False  # flag: la ultima transicion fue por emergencia
 
     # ---- LOGGING ----
 
@@ -100,9 +101,11 @@ class MaquinaEstados:
                 if self.emergencia_pendiente:
                     destino = self.emergencia_pendiente
                     self.emergencia_pendiente = None
+                    self.emergencia_servida = True
                     self._log(f"🚨 TODO_ROJO -> {destino} VERDE (emergencia)")
                 else:
                     destino = self.acceso_siguiente
+                    self.emergencia_servida = False
 
                 self.fase = self.VERDE
                 self.tiempo_fase = 0.0
@@ -111,6 +114,11 @@ class MaquinaEstados:
                 return (destino, "TO_GREEN")
 
         return (None, None)
+
+    @property
+    def transicionando_emergencia(self):
+        """True si estamos en medio de una transicion por emergencia."""
+        return self.emergencia_pendiente is not None
 
     def obtener_info_fase(self):
         """Retorna informacion legible de la fase actual."""
