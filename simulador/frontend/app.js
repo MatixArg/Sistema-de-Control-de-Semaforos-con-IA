@@ -1,16 +1,18 @@
-const canvas = document.getElementById('canvas');
-const ctx = canvas.getContext('2d');
+const socket = io();
+
+const canvas4 = document.getElementById('canvas-4');
+const ctx4 = canvas4.getContext('2d');
+const canvasT = document.getElementById('canvas-t');
+const ctxT = canvasT.getContext('2d');
 
 const CX = 300, CY = 300;
 const ANCHO_CALLE = 80;
-const MITAD_CALLE = ANCHO_CALLE / 2;
-const LARGO_CARRIL = 200;
-const RADIO_SEMAFORO = 12;
-const TAMANO_VEHICULO = 10;
+const MITAD = ANCHO_CALLE / 2;
+const RS = 12;
+const SEP = 22;
 
-let estado = null;
-
-const socket = io();
+let estado4 = null;
+let estadoT = null;
 
 socket.on('connect', () => {
     document.getElementById('status').textContent = 'Conectado';
@@ -22,189 +24,242 @@ socket.on('disconnect', () => {
     document.getElementById('status').className = 'status-desconectado';
 });
 
-socket.on('estado', (data) => {
-    estado = data;
-    actualizarPanel(data);
-    dibujar();
+socket.on('estado_4', (data) => {
+    if (!estado4) crearPanel('panel-4', Object.keys(data.accesos));
+    estado4 = data;
+    actualizarPanel(data, 'panel-4');
+    dibujar4();
 });
 
-function actualizarPanel(data) {
-    document.getElementById('ns-estado').textContent = data.ns.estado;
-    document.getElementById('ns-estado').className = 'valor estado ' + data.ns.estado.toLowerCase();
-    document.getElementById('ns-vehiculos').textContent = data.ns.vehiculos;
-    document.getElementById('ns-espera-max').textContent = data.ns.espera_max + 's';
-    document.getElementById('ns-espera-prom').textContent = data.ns.espera_prom + 's';
-    document.getElementById('ns-tiempo-verde').textContent = data.ns.tiempo_estado + 's';
+socket.on('estado_t', (data) => {
+    if (!estadoT) crearPanel('panel-t', Object.keys(data.accesos));
+    estadoT = data;
+    actualizarPanel(data, 'panel-t');
+    dibujarT();
+});
 
-    document.getElementById('ew-estado').textContent = data.ew.estado;
-    document.getElementById('ew-estado').className = 'valor estado ' + data.ew.estado.toLowerCase();
-    document.getElementById('ew-vehiculos').textContent = data.ew.vehiculos;
-    document.getElementById('ew-espera-max').textContent = data.ew.espera_max + 's';
-    document.getElementById('ew-espera-prom').textContent = data.ew.espera_prom + 's';
-    document.getElementById('ew-tiempo-verde').textContent = data.ew.tiempo_estado + 's';
-
-    document.getElementById('total-vehiculos').textContent = data.total_vehiculos;
-    document.getElementById('tiempo-simulacion').textContent = data.tiempo + 's';
-    document.getElementById('grupo-verde').textContent = data.grupo_verde;
+function crearPanel(id, accesos) {
+    const p = document.getElementById(id);
+    const nom = { N: 'Norte', S: 'Sur', E: 'Este', O: 'Oeste' };
+    let html = '<h3>Panel de Control</h3>';
+    accesos.forEach(a => {
+        html += `<div class="grupo-acceso" data-acceso="${a}">`;
+        html += `<h4>${nom[a]} (${a})</h4>`;
+        html += `<div class="indicador"><span class="etiqueta">Estado:</span><span class="valor estado" data-id="${id}-${a}-estado">--</span></div>`;
+        html += `<div class="indicador"><span class="etiqueta">Vehículos:</span><span class="valor" data-id="${id}-${a}-vehiculos">0</span></div>`;
+        html += `<div class="indicador"><span class="etiqueta">Espera máx:</span><span class="valor" data-id="${id}-${a}-espera-max">0s</span></div>`;
+        html += `<div class="indicador"><span class="etiqueta">Espera prom:</span><span class="valor" data-id="${id}-${a}-espera-prom">0s</span></div>`;
+        html += `<div class="indicador"><span class="etiqueta">Tiempo verde:</span><span class="valor" data-id="${id}-${a}-tiempo-estado">0s</span></div>`;
+        html += `</div>`;
+    });
+    html += `<div class="resumen">`;
+    html += `<h4>Resumen</h4>`;
+    html += `<div class="indicador"><span class="etiqueta">Total:</span><span class="valor" data-id="${id}-total">0</span></div>`;
+    html += `<div class="indicador"><span class="etiqueta">Tiempo:</span><span class="valor" data-id="${id}-tiempo">0s</span></div>`;
+    html += `<div class="indicador"><span class="etiqueta">En verde:</span><span class="valor" data-id="${id}-verde">--</span></div>`;
+    html += `</div>`;
+    p.innerHTML = html;
 }
 
-function dibujar() {
-    ctx.clearRect(0, 0, 600, 600);
-
-    dibujarFondo();
-    dibujarCarriles();
-    dibujarInterseccion();
-    dibujarSemaforos();
-    dibujarVehiculos();
-    dibujarRotulos();
+function actualizarPanel(data, id) {
+    for (const [a, d] of Object.entries(data.accesos)) {
+        const el = (key) => document.querySelector(`[data-id="${id}-${a}-${key}"]`);
+        el('estado').textContent = d.estado;
+        el('estado').className = 'valor estado ' + d.estado.toLowerCase();
+        el('vehiculos').textContent = d.vehiculos;
+        el('espera-max').textContent = d.espera_max + 's';
+        el('espera-prom').textContent = d.espera_prom + 's';
+        el('tiempo-estado').textContent = d.tiempo_estado + 's';
+    }
+    document.querySelector(`[data-id="${id}-total"]`).textContent = data.total_vehiculos;
+    document.querySelector(`[data-id="${id}-tiempo"]`).textContent = data.tiempo + 's';
+    document.querySelector(`[data-id="${id}-verde"]`).textContent = data.acceso_verde || '--';
 }
 
-function dibujarFondo() {
-    ctx.fillStyle = '#3d3d5c';
-    ctx.fillRect(0, 0, 600, 600);
-
-    ctx.fillStyle = '#2d2d44';
-    ctx.fillRect(0, CY - MITAD_CALLE, CX - MITAD_CALLE, ANCHO_CALLE);
-    ctx.fillRect(CX + MITAD_CALLE, CY - MITAD_CALLE, CX - MITAD_CALLE, ANCHO_CALLE);
-    ctx.fillRect(CX - MITAD_CALLE, 0, ANCHO_CALLE, CY - MITAD_CALLE);
-    ctx.fillRect(CX - MITAD_CALLE, CY + MITAD_CALLE, ANCHO_CALLE, CY - MITAD_CALLE);
-}
-
-function dibujarCarriles() {
-    ctx.strokeStyle = '#5a5a7a';
-    ctx.lineWidth = 2;
-    ctx.setLineDash([8, 6]);
-
-    ctx.beginPath();
-    ctx.moveTo(CX, 0);
-    ctx.lineTo(CX, CY - MITAD_CALLE);
-    ctx.stroke();
-
-    ctx.beginPath();
-    ctx.moveTo(CX, CY + MITAD_CALLE);
-    ctx.lineTo(CX, 600);
-    ctx.stroke();
-
-    ctx.beginPath();
-    ctx.moveTo(0, CY);
-    ctx.lineTo(CX - MITAD_CALLE, CY);
-    ctx.stroke();
-
-    ctx.beginPath();
-    ctx.moveTo(CX + MITAD_CALLE, CY);
-    ctx.lineTo(600, CY);
-    ctx.stroke();
-
-    ctx.setLineDash([]);
-}
-
-function dibujarInterseccion() {
-    ctx.fillStyle = '#3d3d5c';
-    ctx.fillRect(CX - MITAD_CALLE, CY - MITAD_CALLE, ANCHO_CALLE, ANCHO_CALLE);
-
-    ctx.strokeStyle = '#5a5a7a';
-    ctx.lineWidth = 2;
-    ctx.strokeRect(CX - MITAD_CALLE, CY - MITAD_CALLE, ANCHO_CALLE, ANCHO_CALLE);
-}
-
-function dibujarSemaforo(x, y, data, vertical) {
-    const cx = vertical ? RADIO_SEMAFORO : 0;
-    const cy = vertical ? 0 : RADIO_SEMAFORO;
-
+function dibujarSemaforo(ctx, x, y, data, vertical) {
     ctx.strokeStyle = '#444';
     ctx.lineWidth = 2;
     ctx.fillStyle = '#222';
     ctx.beginPath();
     if (vertical) {
-        ctx.roundRect(x - RADIO_SEMAFORO, y - RADIO_SEMAFORO * 3 - 4, RADIO_SEMAFORO * 2, RADIO_SEMAFORO * 6 + 8, 4);
+        ctx.roundRect(x - RS, y - RS * 3 - 4, RS * 2, RS * 6 + 8, 4);
     } else {
-        ctx.roundRect(x - RADIO_SEMAFORO * 3 - 4, y - RADIO_SEMAFORO, RADIO_SEMAFORO * 6 + 8, RADIO_SEMAFORO * 2, 4);
+        ctx.roundRect(x - RS * 3 - 4, y - RS, RS * 6 + 8, RS * 2, 4);
     }
     ctx.fill();
     ctx.stroke();
 
-    const colores = [data.estado === 'ROJO' ? '#ff3333' : '#440000',
-                     data.estado === 'AMARILLO' ? '#ffcc00' : '#443300',
-                     data.estado === 'VERDE' ? '#33ff33' : '#004400'];
+    const colores = [
+        data.estado === 'ROJO' ? '#ff3333' : '#330000',
+        data.estado === 'AMARILLO' ? '#ffcc00' : '#332200',
+        data.estado === 'VERDE' ? '#33ff33' : '#003300'
+    ];
 
-    const posiciones = vertical ?
-        [y - RADIO_SEMAFORO * 2, y, y + RADIO_SEMAFORO * 2] :
-        [x - RADIO_SEMAFORO * 2, x, x + RADIO_SEMAFORO * 2];
-
-    for (let i = 0; i < 3; i++) {
-        ctx.beginPath();
-        ctx.arc(vertical ? x : posiciones[i], vertical ? posiciones[i] : y, RADIO_SEMAFORO - 2, 0, Math.PI * 2);
-        ctx.fillStyle = colores[i];
-        ctx.fill();
-        if (colores[i] !== '#440000' && colores[i] !== '#443300' && colores[i] !== '#004400') {
-            ctx.shadowColor = colores[i];
-            ctx.shadowBlur = 8;
+    if (vertical) {
+        for (let i = 0; i < 3; i++) {
+            const yy = y + (i - 1) * RS * 2;
+            ctx.beginPath();
+            ctx.arc(x, yy, RS - 2, 0, Math.PI * 2);
+            ctx.fillStyle = colores[i];
             ctx.fill();
-            ctx.shadowBlur = 0;
+            if (i === 0 && data.estado === 'ROJO' || i === 1 && data.estado === 'AMARILLO' || i === 2 && data.estado === 'VERDE') {
+                ctx.shadowColor = colores[i];
+                ctx.shadowBlur = 8;
+                ctx.fill();
+                ctx.shadowBlur = 0;
+            }
         }
-    }
-}
-
-function dibujarSemaforos() {
-    if (!estado) return;
-
-    const cx = CX, cy = CY;
-
-    dibujarSemaforo(cx, cy - MITAD_CALLE - 10, estado.ns, true);
-    dibujarSemaforo(cx, cy + MITAD_CALLE + 10, estado.ns, true);
-    dibujarSemaforo(cx - MITAD_CALLE - 10, cy, estado.ew, false);
-    dibujarSemaforo(cx + MITAD_CALLE + 10, cy, estado.ew, false);
-
-    ctx.shadowBlur = 0;
-}
-
-function dibujarVehiculos() {
-    if (!estado) return;
-
-    const separacion = 22;
-
-    function dibujarFila(cx, cy, cantidad, dx, dy, girar) {
-        const max_visibles = Math.min(cantidad, 8);
-        for (let i = 0; i < max_visibles; i++) {
-            const offset = (i + 1) * separacion;
-            const x = cx + dx * offset;
-            const y = cy + dy * offset;
-
-            ctx.save();
-            ctx.translate(x, y);
-            if (girar) ctx.rotate(Math.PI / 2);
-            ctx.fillStyle = '#e94560';
-            ctx.fillRect(-6, -4, 12, 8);
-            ctx.fillStyle = '#ff6b81';
-            ctx.fillRect(-4, -3, 8, 6);
-            ctx.restore();
-
-            if (i === max_visibles - 1 && cantidad > max_visibles) {
-                ctx.fillStyle = '#aaa';
-                ctx.font = '10px sans-serif';
-                ctx.textAlign = 'center';
-                ctx.fillText('+' + (cantidad - max_visibles), x + dx * 10, y + dy * 10 + 4);
+    } else {
+        for (let i = 0; i < 3; i++) {
+            const xx = x + (i - 1) * RS * 2;
+            ctx.beginPath();
+            ctx.arc(xx, y, RS - 2, 0, Math.PI * 2);
+            ctx.fillStyle = colores[i];
+            ctx.fill();
+            if (i === 0 && data.estado === 'ROJO' || i === 1 && data.estado === 'AMARILLO' || i === 2 && data.estado === 'VERDE') {
+                ctx.shadowColor = colores[i];
+                ctx.shadowBlur = 8;
+                ctx.fill();
+                ctx.shadowBlur = 0;
             }
         }
     }
-
-    dibujarFila(CX, CY - MITAD_CALLE, estado.norte, 0, -1, false);
-    dibujarFila(CX, CY + MITAD_CALLE, estado.sur, 0, 1, false);
-    dibujarFila(CX - MITAD_CALLE, CY, estado.oeste, -1, 0, true);
-    dibujarFila(CX + MITAD_CALLE, CY, estado.este, 1, 0, true);
+    ctx.shadowBlur = 0;
 }
 
-function dibujarRotulos() {
-    if (!estado) return;
+function dibujarFondo(ctx, norte) {
+    ctx.fillStyle = '#3d3d5c';
+    ctx.fillRect(0, 0, 600, 600);
+    ctx.fillStyle = '#2d2d44';
+    if (norte) {
+        ctx.fillRect(CX - MITAD, 0, ANCHO_CALLE, CY - MITAD);
+    }
+    ctx.fillRect(CX - MITAD, CY + MITAD, ANCHO_CALLE, 600 - CY - MITAD);
+    ctx.fillRect(0, CY - MITAD, CX - MITAD, ANCHO_CALLE);
+    ctx.fillRect(CX + MITAD, CY - MITAD, 600 - CX - MITAD, ANCHO_CALLE);
+}
 
+function dibujarMarcas(ctx, norte) {
+    ctx.strokeStyle = '#5a5a7a';
+    ctx.lineWidth = 2;
+    ctx.setLineDash([8, 6]);
+    if (norte) {
+        ctx.beginPath(); ctx.moveTo(CX, 0); ctx.lineTo(CX, CY - MITAD); ctx.stroke();
+    }
+    ctx.beginPath(); ctx.moveTo(CX, CY + MITAD); ctx.lineTo(CX, 600); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(0, CY); ctx.lineTo(CX - MITAD, CY); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(CX + MITAD, CY); ctx.lineTo(600, CY); ctx.stroke();
+    ctx.setLineDash([]);
+}
+
+function dibujarVehiculosCarril(ctx, cantidad, sx, sy, dx, dy, girar) {
+    const maxVis = Math.min(cantidad, 8);
+    for (let i = 0; i < maxVis; i++) {
+        const off = (i + 1) * SEP;
+        const x = sx + dx * off;
+        const y = sy + dy * off;
+        ctx.save();
+        ctx.translate(x, y);
+        if (girar) ctx.rotate(Math.PI / 2);
+        ctx.fillStyle = '#e94560';
+        ctx.fillRect(-6, -4, 12, 8);
+        ctx.fillStyle = '#ff6b81';
+        ctx.fillRect(-4, -3, 8, 6);
+        ctx.restore();
+        if (i === maxVis - 1 && cantidad > maxVis) {
+            ctx.fillStyle = '#aaa';
+            ctx.font = '10px sans-serif';
+            ctx.textAlign = 'center';
+            ctx.fillText('+' + (cantidad - maxVis), x + dx * 10, y + dy * 10 + 4);
+        }
+    }
+}
+
+function dibujarRotulos(ctx, items) {
     ctx.fillStyle = '#a0a0c0';
     ctx.font = 'bold 14px sans-serif';
-    ctx.textAlign = 'center';
+    items.forEach(item => {
+        if (item.align) ctx.textAlign = item.align;
+        else ctx.textAlign = 'center';
+        ctx.fillText(item.text, item.x, item.y);
+    });
+}
 
-    ctx.fillText('NORTE (' + estado.norte + ')', CX, 20);
-    ctx.fillText('SUR (' + estado.sur + ')', CX, 590);
-    ctx.textAlign = 'left';
-    ctx.fillText('OESTE (' + estado.oeste + ')', 10, CY + 5);
-    ctx.textAlign = 'right';
-    ctx.fillText('ESTE (' + estado.este + ')', 590, CY + 5);
+function dibujar4() {
+    if (!estado4) return;
+    const ctx = ctx4, d = estado4;
+    ctx.clearRect(0, 0, 600, 600);
+    dibujarFondo(ctx, true);
+    dibujarMarcas(ctx, true);
+
+    ctx.fillStyle = '#3d3d5c';
+    ctx.fillRect(CX - MITAD, CY - MITAD, ANCHO_CALLE, ANCHO_CALLE);
+    ctx.strokeStyle = '#5a5a7a';
+    ctx.lineWidth = 2;
+    ctx.strokeRect(CX - MITAD, CY - MITAD, ANCHO_CALLE, ANCHO_CALLE);
+
+    const semPos = {
+        N: { x: CX, y: CY - MITAD - 15, v: true },
+        S: { x: CX, y: CY + MITAD + 15, v: true },
+        E: { x: CX + MITAD + 15, y: CY, v: false },
+        W: { x: CX - MITAD - 15, y: CY, v: false }
+    };
+    for (const [a, p] of Object.entries(semPos)) {
+        if (d.accesos[a]) dibujarSemaforo(ctx, p.x, p.y, d.accesos[a], p.v);
+    }
+
+    const vehCfg = {
+        N: { sx: CX, sy: CY - MITAD, dx: 0, dy: -1, girar: false },
+        S: { sx: CX, sy: CY + MITAD, dx: 0, dy: 1, girar: false },
+        E: { sx: CX + MITAD, sy: CY, dx: 1, dy: 0, girar: true },
+        W: { sx: CX - MITAD, sy: CY, dx: -1, dy: 0, girar: true }
+    };
+    for (const [a, c] of Object.entries(vehCfg)) {
+        if (d.accesos[a]) dibujarVehiculosCarril(ctx, d.accesos[a].vehiculos, c.sx, c.sy, c.dx, c.dy, c.girar);
+    }
+
+    dibujarRotulos(ctx, [
+        { text: 'NORTE (' + (d.accesos.N ? d.accesos.N.vehiculos : 0) + ')', x: CX, y: 20 },
+        { text: 'SUR (' + (d.accesos.S ? d.accesos.S.vehiculos : 0) + ')', x: CX, y: 590 },
+        { text: 'OESTE (' + (d.accesos.W ? d.accesos.W.vehiculos : 0) + ')', x: 10, y: CY + 5, align: 'left' },
+        { text: 'ESTE (' + (d.accesos.E ? d.accesos.E.vehiculos : 0) + ')', x: 590, y: CY + 5, align: 'right' }
+    ]);
+}
+
+function dibujarT() {
+    if (!estadoT) return;
+    const ctx = ctxT, d = estadoT;
+    ctx.clearRect(0, 0, 600, 600);
+    dibujarFondo(ctx, false);
+    dibujarMarcas(ctx, false);
+
+    ctx.fillStyle = '#3d3d5c';
+    ctx.fillRect(CX - MITAD, CY - MITAD, ANCHO_CALLE, ANCHO_CALLE);
+    ctx.strokeStyle = '#5a5a7a';
+    ctx.lineWidth = 2;
+    ctx.strokeRect(CX - MITAD, CY - MITAD, ANCHO_CALLE, ANCHO_CALLE);
+
+    const semPos = {
+        S: { x: CX, y: CY + MITAD + 15, v: true },
+        E: { x: CX + MITAD + 15, y: CY, v: false },
+        W: { x: CX - MITAD - 15, y: CY, v: false }
+    };
+    for (const [a, p] of Object.entries(semPos)) {
+        if (d.accesos[a]) dibujarSemaforo(ctx, p.x, p.y, d.accesos[a], p.v);
+    }
+
+    const vehCfg = {
+        S: { sx: CX, sy: CY + MITAD, dx: 0, dy: 1, girar: false },
+        E: { sx: CX + MITAD, sy: CY, dx: 1, dy: 0, girar: true },
+        W: { sx: CX - MITAD, sy: CY, dx: -1, dy: 0, girar: true }
+    };
+    for (const [a, c] of Object.entries(vehCfg)) {
+        if (d.accesos[a]) dibujarVehiculosCarril(ctx, d.accesos[a].vehiculos, c.sx, c.sy, c.dx, c.dy, c.girar);
+    }
+
+    dibujarRotulos(ctx, [
+        { text: 'SUR (' + d.accesos.S.vehiculos + ')', x: CX, y: 590 },
+        { text: 'OESTE (' + d.accesos.W.vehiculos + ')', x: 10, y: CY + 5, align: 'left' },
+        { text: 'ESTE (' + d.accesos.E.vehiculos + ')', x: 590, y: CY + 5, align: 'right' }
+    ]);
 }

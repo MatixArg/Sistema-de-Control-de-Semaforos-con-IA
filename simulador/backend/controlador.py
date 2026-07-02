@@ -1,51 +1,44 @@
 class Controlador:
-    def __init__(self, peso_cantidad=2.0, peso_espera=1.5,
-                 verde_minimo=5, verde_maximo=30,
-                 starvation_limite=45):
+    def __init__(self, accesos, peso_cantidad=2.0, peso_espera=1.5,
+                 verde_minimo=5, verde_maximo=30, starvation_limite=45):
+        self.accesos = accesos
         self.peso_cantidad = peso_cantidad
         self.peso_espera = peso_espera
         self.verde_minimo = verde_minimo
         self.verde_maximo = verde_maximo
         self.starvation_limite = starvation_limite
 
-    def calcular_puntaje(self, interseccion, grupo):
-        cantidad = interseccion.contar_vehiculos_grupo(grupo)
-        espera_max = interseccion.obtener_tiempo_espera_maximo(grupo)
+    def calcular_puntaje(self, interseccion, acceso):
+        cantidad = interseccion.contar_vehiculos(acceso)
+        espera_max = interseccion.obtener_tiempo_espera_maximo(acceso)
         return (cantidad * self.peso_cantidad) + (espera_max * self.peso_espera)
 
     def detectar_starvation(self, interseccion):
-        for grupo in ["NS", "EW"]:
-            espera_max = interseccion.obtener_tiempo_espera_maximo(grupo)
-            if espera_max >= self.starvation_limite:
-                return grupo
+        for a in self.accesos:
+            if interseccion.obtener_tiempo_espera_maximo(a) >= self.starvation_limite:
+                return a
         return None
 
-    def calcular_prioridad(self, interseccion):
+    def decidir(self, interseccion):
         starvation = self.detectar_starvation(interseccion)
         if starvation:
             return starvation
 
-        puntaje_ns = self.calcular_puntaje(interseccion, "NS")
-        puntaje_ew = self.calcular_puntaje(interseccion, "EW")
+        puntajes = {a: self.calcular_puntaje(interseccion, a) for a in self.accesos}
+        mejor_acceso = max(puntajes, key=puntajes.get)
+        acceso_actual = interseccion.acceso_verde
 
-        return "NS" if puntaje_ns >= puntaje_ew else "EW"
+        if acceso_actual is None:
+            return mejor_acceso
 
-    def deberia_cambiar(self, interseccion):
-        grupo_actual = interseccion.grupo_verde
+        semaforo_actual = interseccion.semaforos[acceso_actual]
 
-        if grupo_actual == "NS":
-            tiempo_verde = interseccion.semaforo_ns.tiempo_en_estado
-        else:
-            tiempo_verde = interseccion.semaforo_ew.tiempo_en_estado
+        if semaforo_actual.tiempo_en_estado < self.verde_minimo:
+            return acceso_actual
+        if semaforo_actual.tiempo_en_estado >= self.verde_maximo:
+            return mejor_acceso
+        if mejor_acceso != acceso_actual:
+            if puntajes[mejor_acceso] > puntajes[acceso_actual] * 1.2:
+                return mejor_acceso
 
-        if tiempo_verde < self.verde_minimo:
-            return False
-        if tiempo_verde >= self.verde_maximo:
-            return True
-
-        return self.calcular_prioridad(interseccion) != grupo_actual
-
-    def decidir(self, interseccion):
-        if self.deberia_cambiar(interseccion):
-            return self.calcular_prioridad(interseccion)
-        return interseccion.grupo_verde
+        return acceso_actual

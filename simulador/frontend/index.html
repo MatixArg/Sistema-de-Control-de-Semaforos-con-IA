@@ -13,77 +13,21 @@
     </header>
 
     <main>
-        <div class="contenedor">
-            <canvas id="canvas" width="600" height="600"></canvas>
-
-            <div class="panel">
-                <h2>Panel de Control</h2>
-
-                <div class="grupo-semaforo" id="panel-ns">
-                    <h3>Norte - Sur</h3>
-                    <div class="indicador">
-                        <span class="etiqueta">Estado:</span>
-                        <span class="valor estado" id="ns-estado">--</span>
-                    </div>
-                    <div class="indicador">
-                        <span class="etiqueta">Vehículos:</span>
-                        <span class="valor" id="ns-vehiculos">0</span>
-                    </div>
-                    <div class="indicador">
-                        <span class="etiqueta">Espera máx:</span>
-                        <span class="valor" id="ns-espera-max">0s</span>
-                    </div>
-                    <div class="indicador">
-                        <span class="etiqueta">Espera prom:</span>
-                        <span class="valor" id="ns-espera-prom">0s</span>
-                    </div>
-                    <div class="indicador">
-                        <span class="etiqueta">Tiempo verde:</span>
-                        <span class="valor" id="ns-tiempo-verde">0s</span>
-                    </div>
-                </div>
-
-                <div class="grupo-semaforo" id="panel-ew">
-                    <h3>Este - Oeste</h3>
-                    <div class="indicador">
-                        <span class="etiqueta">Estado:</span>
-                        <span class="valor estado" id="ew-estado">--</span>
-                    </div>
-                    <div class="indicador">
-                        <span class="etiqueta">Vehículos:</span>
-                        <span class="valor" id="ew-vehiculos">0</span>
-                    </div>
-                    <div class="indicador">
-                        <span class="etiqueta">Espera máx:</span>
-                        <span class="valor" id="ew-espera-max">0s</span>
-                    </div>
-                    <div class="indicador">
-                        <span class="etiqueta">Espera prom:</span>
-                        <span class="valor" id="ew-espera-prom">0s</span>
-                    </div>
-                    <div class="indicador">
-                        <span class="etiqueta">Tiempo verde:</span>
-                        <span class="valor" id="ew-tiempo-verde">0s</span>
-                    </div>
-                </div>
-
-                <div class="resumen">
-                    <h3>Resumen</h3>
-                    <div class="indicador">
-                        <span class="etiqueta">Total vehículos:</span>
-                        <span class="valor" id="total-vehiculos">0</span>
-                    </div>
-                    <div class="indicador">
-                        <span class="etiqueta">Tiempo simulación:</span>
-                        <span class="valor" id="tiempo-simulacion">0s</span>
-                    </div>
-                    <div class="indicador">
-                        <span class="etiqueta">Grupo en verde:</span>
-                        <span class="valor" id="grupo-verde">--</span>
-                    </div>
-                </div>
+        <section class="seccion">
+            <h2>Intersección 4 Vías</h2>
+            <div class="fila">
+                <canvas id="canvas-4" width="600" height="600"></canvas>
+                <div class="panel" id="panel-4"></div>
             </div>
-        </div>
+        </section>
+
+        <section class="seccion">
+            <h2>Intersección T (3 Vías)</h2>
+            <div class="fila">
+                <canvas id="canvas-t" width="600" height="600"></canvas>
+                <div class="panel" id="panel-t"></div>
+            </div>
+        </section>
     </main>
 
     <script src="https://cdn.socket.io/4.8.1/socket.io.min.js"></script>

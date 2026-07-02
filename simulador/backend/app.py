@@ -3,55 +3,65 @@ import threading
 import time
 from flask import Flask, send_from_directory
 from flask_socketio import SocketIO, emit
-from interseccion import Interseccion, CARRIL_NORTE, CARRIL_SUR, CARRIL_ESTE, CARRIL_OESTE, TODOS_CARRILES
+from interseccion import Interseccion, ACCESOS_4, ACCESOS_T, NORTE, SUR
 from semaforo import Semaforo
 from controlador import Controlador
 
 app = Flask(__name__)
 socketio = SocketIO(app, cors_allowed_origins='*')
 
-interseccion = Interseccion()
-controlador = Controlador()
+int_4 = Interseccion(ACCESOS_4)
+ctrl_4 = Controlador(ACCESOS_4)
+int_t = Interseccion(ACCESOS_T)
+ctrl_t = Controlador(ACCESOS_T)
 
 DT = 0.5
 PROBABILIDAD_SPAWN = 0.15
 TASA_LIBERACION = 1
 DURACION_AMARILLO = 2.0
 
-interseccion.semaforo_ns.cambiar_estado(Semaforo.VERDE)
-interseccion.grupo_verde = "NS"
+int_4.semaforos[NORTE].cambiar_estado(Semaforo.VERDE)
+int_4.acceso_verde = NORTE
+int_t.semaforos[SUR].cambiar_estado(Semaforo.VERDE)
+int_t.acceso_verde = SUR
+
+def ejecutar_tick(interseccion, controlador):
+    for a in interseccion.accesos:
+        if random.random() < PROBABILIDAD_SPAWN:
+            interseccion.agregar_vehiculo(a)
+
+    interseccion.actualizar(DT)
+
+    acceso_actual = interseccion.acceso_verde
+    if acceso_actual is None:
+        return
+
+    semaforo_actual = interseccion.semaforos[acceso_actual]
+
+    if semaforo_actual.estado == Semaforo.AMARILLO:
+        if semaforo_actual.tiempo_en_estado >= DURACION_AMARILLO:
+            semaforo_actual.cambiar_estado(Semaforo.ROJO)
+            nuevo_acceso = interseccion.acceso_proximo
+            interseccion.semaforos[nuevo_acceso].cambiar_estado(Semaforo.VERDE)
+            interseccion.acceso_verde = nuevo_acceso
+            interseccion.acceso_proximo = None
+    elif semaforo_actual.estado == Semaforo.VERDE:
+        for _ in range(TASA_LIBERACION):
+            if interseccion.carriles[acceso_actual]:
+                interseccion.carriles[acceso_actual].popleft()
+
+        decision = controlador.decidir(interseccion)
+        if decision != acceso_actual:
+            semaforo_actual.cambiar_estado(Semaforo.AMARILLO)
+            interseccion.acceso_proximo = decision
 
 def simulation_loop():
     while True:
         time.sleep(DT)
-
-        for carril in TODOS_CARRILES:
-            if random.random() < PROBABILIDAD_SPAWN:
-                interseccion.agregar_vehiculo(carril)
-
-        interseccion.actualizar(DT)
-
-        grupo_actual = interseccion.grupo_verde
-        semaforo_actual = interseccion.semaforo_ns if grupo_actual == "NS" else interseccion.semaforo_ew
-        semaforo_otro = interseccion.semaforo_ew if grupo_actual == "NS" else interseccion.semaforo_ns
-
-        if semaforo_actual.estado == Semaforo.AMARILLO:
-            if semaforo_actual.tiempo_en_estado >= DURACION_AMARILLO:
-                semaforo_actual.cambiar_estado(Semaforo.ROJO)
-                semaforo_otro.cambiar_estado(Semaforo.VERDE)
-                nuevo_grupo = "EW" if grupo_actual == "NS" else "NS"
-                interseccion.grupo_verde = nuevo_grupo
-        elif semaforo_actual.estado == Semaforo.VERDE:
-            for carril in interseccion.obtener_carriles_grupo(grupo_actual):
-                for _ in range(TASA_LIBERACION):
-                    if interseccion.carriles[carril]:
-                        interseccion.carriles[carril].popleft()
-
-            decision = controlador.decidir(interseccion)
-            if decision != grupo_actual:
-                semaforo_actual.cambiar_estado(Semaforo.AMARILLO)
-
-        socketio.emit('estado', interseccion.obtener_estado())
+        ejecutar_tick(int_4, ctrl_4)
+        ejecutar_tick(int_t, ctrl_t)
+        socketio.emit('estado_4', int_4.obtener_estado())
+        socketio.emit('estado_t', int_t.obtener_estado())
 
 @app.route('/')
 def index():

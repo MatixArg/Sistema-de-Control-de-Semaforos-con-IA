@@ -2,100 +2,76 @@ from collections import deque
 from semaforo import Semaforo
 from vehiculo import Vehiculo
 
-CARRIL_NORTE = "N"
-CARRIL_SUR = "S"
-CARRIL_ESTE = "E"
-CARRIL_OESTE = "W"
+NORTE = "N"
+SUR = "S"
+ESTE = "E"
+OESTE = "W"
 
-TODOS_CARRILES = [CARRIL_NORTE, CARRIL_SUR, CARRIL_ESTE, CARRIL_OESTE]
+ACCESOS_4 = [NORTE, SUR, ESTE, OESTE]
+ACCESOS_T = [SUR, ESTE, OESTE]
 
 class Interseccion:
-    def __init__(self):
-        self.carriles = {
-            CARRIL_NORTE: deque(),
-            CARRIL_SUR: deque(),
-            CARRIL_ESTE: deque(),
-            CARRIL_OESTE: deque()
-        }
-        self.semaforo_ns = Semaforo()
-        self.semaforo_ew = Semaforo()
-        self.grupo_verde = "NS"
+    def __init__(self, accesos):
+        self.accesos = accesos
+        self.carriles = {a: deque() for a in accesos}
+        self.semaforos = {a: Semaforo() for a in accesos}
+        self.acceso_verde = None
+        self.acceso_proximo = None
         self.tiempo_simulacion = 0.0
 
-    def agregar_vehiculo(self, carril):
-        v = Vehiculo(carril)
+    def agregar_vehiculo(self, acceso):
+        v = Vehiculo(acceso)
         v.tiempo_llegada = self.tiempo_simulacion
-        self.carriles[carril].append(v)
+        self.carriles[acceso].append(v)
         return v
 
-    def contar_vehiculos(self, carril=None):
-        if carril:
-            return len(self.carriles[carril])
+    def contar_vehiculos(self, acceso=None):
+        if acceso:
+            return len(self.carriles[acceso])
         return sum(len(q) for q in self.carriles.values())
 
-    def contar_vehiculos_grupo(self, grupo):
-        if grupo == "NS":
-            return len(self.carriles[CARRIL_NORTE]) + len(self.carriles[CARRIL_SUR])
-        return len(self.carriles[CARRIL_ESTE]) + len(self.carriles[CARRIL_OESTE])
-
-    def obtener_carriles_grupo(self, grupo):
-        if grupo == "NS":
-            return [CARRIL_NORTE, CARRIL_SUR]
-        return [CARRIL_ESTE, CARRIL_OESTE]
-
-    def obtener_tiempo_espera_maximo(self, grupo):
+    def obtener_tiempo_espera_maximo(self, acceso):
         max_espera = 0.0
-        for c in self.obtener_carriles_grupo(grupo):
-            for v in self.carriles[c]:
-                if v.tiempo_espera > max_espera:
-                    max_espera = v.tiempo_espera
+        for v in self.carriles[acceso]:
+            if v.tiempo_espera > max_espera:
+                max_espera = v.tiempo_espera
         return max_espera
 
-    def obtener_tiempo_espera_promedio(self, grupo):
+    def obtener_tiempo_espera_promedio(self, acceso):
         total = 0.0
         count = 0
-        for c in self.obtener_carriles_grupo(grupo):
-            for v in self.carriles[c]:
-                total += v.tiempo_espera
-                count += 1
+        for v in self.carriles[acceso]:
+            total += v.tiempo_espera
+            count += 1
         return total / count if count > 0 else 0.0
 
-    def vaciar_carriles_grupo(self, grupo):
-        total = 0
-        for c in self.obtener_carriles_grupo(grupo):
-            total += len(self.carriles[c])
-            self.carriles[c].clear()
-        return total
+    def vaciar_acceso(self, acceso):
+        count = len(self.carriles[acceso])
+        self.carriles[acceso].clear()
+        return count
 
     def actualizar(self, dt):
         self.tiempo_simulacion += dt
         for cola in self.carriles.values():
             for v in cola:
                 v.actualizar_espera(dt)
-        self.semaforo_ns.actualizar(dt)
-        self.semaforo_ew.actualizar(dt)
+        for s in self.semaforos.values():
+            s.actualizar(dt)
 
     def obtener_estado(self):
+        accesos_data = {}
+        for a in self.accesos:
+            sem = self.semaforos[a]
+            accesos_data[a] = {
+                "estado": sem.estado,
+                "tiempo_estado": round(sem.tiempo_en_estado, 1),
+                "vehiculos": self.contar_vehiculos(a),
+                "espera_max": round(self.obtener_tiempo_espera_maximo(a), 1),
+                "espera_prom": round(self.obtener_tiempo_espera_promedio(a), 1)
+            }
         return {
             "tiempo": round(self.tiempo_simulacion, 1),
-            "grupo_verde": self.grupo_verde,
-            "ns": {
-                "estado": self.semaforo_ns.estado,
-                "tiempo_estado": round(self.semaforo_ns.tiempo_en_estado, 1),
-                "vehiculos": self.contar_vehiculos_grupo("NS"),
-                "espera_max": round(self.obtener_tiempo_espera_maximo("NS"), 1),
-                "espera_prom": round(self.obtener_tiempo_espera_promedio("NS"), 1)
-            },
-            "ew": {
-                "estado": self.semaforo_ew.estado,
-                "tiempo_estado": round(self.semaforo_ew.tiempo_en_estado, 1),
-                "vehiculos": self.contar_vehiculos_grupo("EW"),
-                "espera_max": round(self.obtener_tiempo_espera_maximo("EW"), 1),
-                "espera_prom": round(self.obtener_tiempo_espera_promedio("EW"), 1)
-            },
-            "norte": len(self.carriles[CARRIL_NORTE]),
-            "sur": len(self.carriles[CARRIL_SUR]),
-            "este": len(self.carriles[CARRIL_ESTE]),
-            "oeste": len(self.carriles[CARRIL_OESTE]),
+            "acceso_verde": self.acceso_verde,
+            "accesos": accesos_data,
             "total_vehiculos": self.contar_vehiculos()
         }
