@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Simulador de Semáforos con IA</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <header>
+        <h1>Simulador de Control de Semáforos con IA</h1>
+        <p id="status" class="status-desconectado">Desconectado</p>
+    </header>
+
+    <main>
+        <div class="contenedor">
+            <canvas id="canvas" width="600" height="600"></canvas>
+
+            <div class="panel">
+                <h2>Panel de Control</h2>
+
+                <div class="grupo-semaforo" id="panel-ns">
+                    <h3>Norte - Sur</h3>
+                    <div class="indicador">
+                        <span class="etiqueta">Estado:</span>
+                        <span class="valor estado" id="ns-estado">--</span>
+                    </div>
+                    <div class="indicador">
+                        <span class="etiqueta">Vehículos:</span>
+                        <span class="valor" id="ns-vehiculos">0</span>
+                    </div>
+                    <div class="indicador">
+                        <span class="etiqueta">Espera máx:</span>
+                        <span class="valor" id="ns-espera-max">0s</span>
+                    </div>
+                    <div class="indicador">
+                        <span class="etiqueta">Espera prom:</span>
+                        <span class="valor" id="ns-espera-prom">0s</span>
+                    </div>
+                    <div class="indicador">
+                        <span class="etiqueta">Tiempo verde:</span>
+                        <span class="valor" id="ns-tiempo-verde">0s</span>
+                    </div>
+                </div>
+
+                <div class="grupo-semaforo" id="panel-ew">
+                    <h3>Este - Oeste</h3>
+                    <div class="indicador">
+                        <span class="etiqueta">Estado:</span>
+                        <span class="valor estado" id="ew-estado">--</span>
+                    </div>
+                    <div class="indicador">
+                        <span class="etiqueta">Vehículos:</span>
+                        <span class="valor" id="ew-vehiculos">0</span>
+                    </div>
+                    <div class="indicador">
+                        <span class="etiqueta">Espera máx:</span>
+                        <span class="valor" id="ew-espera-max">0s</span>
+                    </div>
+                    <div class="indicador">
+                        <span class="etiqueta">Espera prom:</span>
+                        <span class="valor" id="ew-espera-prom">0s</span>
+                    </div>
+                    <div class="indicador">
+                        <span class="etiqueta">Tiempo verde:</span>
+                        <span class="valor" id="ew-tiempo-verde">0s</span>
+                    </div>
+                </div>
+
+                <div class="resumen">
+                    <h3>Resumen</h3>
+                    <div class="indicador">
+                        <span class="etiqueta">Total vehículos:</span>
+                        <span class="valor" id="total-vehiculos">0</span>
+                    </div>
+                    <div class="indicador">
+                        <span class="etiqueta">Tiempo simulación:</span>
+                        <span class="valor" id="tiempo-simulacion">0s</span>
+                    </div>
+                    <div class="indicador">
+                        <span class="etiqueta">Grupo en verde:</span>
+                        <span class="valor" id="grupo-verde">--</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <script src="https://cdn.socket.io/4.8.1/socket.io.min.js"></script>
+    <script src="app.js"></script>
+</body>
+</html>
