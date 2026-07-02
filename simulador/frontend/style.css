@@ -131,3 +131,27 @@ canvas {
     color: #e94560;
     margin-bottom: 8px;
 }
+
+.estado.parpadeante {
+    color: #ff6b6b;
+    animation: parpadeo 0.5s step-end infinite;
+}
+
+@keyframes parpadeo {
+    50% { opacity: 0.3; }
+}
+
+.grupo-acceso.alerta-inoperable {
+    border-left-color: #ff6b6b !important;
+    background: #2a1a1a !important;
+}
+
+.grupo-acceso.alerta-emergencia {
+    border-left-color: #ff3333 !important;
+    background: #2a1010 !important;
+    animation: emergencia-bg 1s step-end infinite;
+}
+
+@keyframes emergencia-bg {
+    50% { background: #3a1515; }
+}

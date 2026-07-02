@@ -43,13 +43,18 @@ function crearPanel(id, accesos) {
     const nom = { N: 'Norte', S: 'Sur', E: 'Este', O: 'Oeste' };
     let html = '<h3>Panel de Control</h3>';
     accesos.forEach(a => {
-        html += `<div class="grupo-acceso" data-acceso="${a}">`;
+        const es4 = id === 'panel-4';
+        html += `<div class="grupo-acceso" data-acceso="${a}" id="${id}-${a}-grupo">`;
         html += `<h4>${nom[a]} (${a})</h4>`;
         html += `<div class="indicador"><span class="etiqueta">Estado:</span><span class="valor estado" data-id="${id}-${a}-estado">--</span></div>`;
         html += `<div class="indicador"><span class="etiqueta">Vehículos:</span><span class="valor" data-id="${id}-${a}-vehiculos">0</span></div>`;
         html += `<div class="indicador"><span class="etiqueta">Espera máx:</span><span class="valor" data-id="${id}-${a}-espera-max">0s</span></div>`;
         html += `<div class="indicador"><span class="etiqueta">Espera prom:</span><span class="valor" data-id="${id}-${a}-espera-prom">0s</span></div>`;
-        html += `<div class="indicador"><span class="etiqueta">Tiempo verde:</span><span class="valor" data-id="${id}-${a}-tiempo-estado">0s</span></div>`;
+        html += `<div class="indicador"><span class="etiqueta">Velocidad:</span><span class="valor" data-id="${id}-${a}-velocidad">0 km/h</span></div>`;
+        html += `<div class="indicador"><span class="etiqueta">Cámara:</span><span class="valor" data-id="${id}-${a}-camara">✅</span></div>`;
+        html += `<div class="indicador" style="display:none" id="${id}-${a}-alerta-inop"><span class="etiqueta" style="color:#ff6b6b">⛔ INOPERABLE</span></div>`;
+        html += `<div class="indicador" style="display:none" id="${id}-${a}-alerta-emerg"><span class="etiqueta" style="color:#ff3333">🚨 EMERGENCIA</span></div>`;
+        html += `<div class="indicador" style="display:none" id="${id}-${a}-alerta-obstr"><span class="etiqueta" style="color:#ffd43b">⚠️ OBSTRUCCIÓN</span></div>`;
         html += `</div>`;
     });
     html += `<div class="resumen">`;
@@ -64,12 +69,28 @@ function crearPanel(id, accesos) {
 function actualizarPanel(data, id) {
     for (const [a, d] of Object.entries(data.accesos)) {
         const el = (key) => document.querySelector(`[data-id="${id}-${a}-${key}"]`);
-        el('estado').textContent = d.estado;
-        el('estado').className = 'valor estado ' + d.estado.toLowerCase();
-        el('vehiculos').textContent = d.vehiculos;
+
+        const estadoStr = d.parpadeando ? 'ROJO \u26A1' : d.estado;
+        el('estado').textContent = estadoStr;
+        let cls = 'valor estado';
+        if (d.parpadeando) cls += ' parpadeante';
+        else cls += ' ' + (d.estado || '').toLowerCase();
+        el('estado').className = cls;
+        el('vehiculos').textContent = d.vehiculos >= 0 ? d.vehiculos : '--';
         el('espera-max').textContent = d.espera_max + 's';
         el('espera-prom').textContent = d.espera_prom + 's';
-        el('tiempo-estado').textContent = d.tiempo_estado + 's';
+        el('velocidad').textContent = d.velocidad_media >= 0 ? d.velocidad_media + ' km/h' : '-- km/h';
+        el('camara').textContent = d.camara_operativa ? '\u2705' : '\u274C';
+
+        const grupo = document.getElementById(`${id}-${a}-grupo`);
+        document.getElementById(`${id}-${a}-alerta-inop`).style.display = d.inoperable ? 'flex' : 'none';
+        document.getElementById(`${id}-${a}-alerta-emerg`).style.display = d.emergencia_activa ? 'flex' : 'none';
+        document.getElementById(`${id}-${a}-alerta-obstr`).style.display = d.obstruccion_activa ? 'flex' : 'none';
+
+        if (d.inoperable) grupo.style.borderLeftColor = '#ff6b6b';
+        else if (d.emergencia_activa) grupo.style.borderLeftColor = '#ff3333';
+        else if (d.obstruccion_activa) grupo.style.borderLeftColor = '#ffd43b';
+        else grupo.style.borderLeftColor = '#0f3460';
     }
     document.querySelector(`[data-id="${id}-total"]`).textContent = data.total_vehiculos;
     document.querySelector(`[data-id="${id}-tiempo"]`).textContent = data.tiempo + 's';
@@ -77,6 +98,9 @@ function actualizarPanel(data, id) {
 }
 
 function dibujarSemaforo(ctx, x, y, data, vertical) {
+    const parpadeando = data.parpadeando;
+    const mostrarRojo = parpadeando ? (Math.floor(Date.now() / 500) % 2 === 0) : true;
+
     ctx.strokeStyle = '#444';
     ctx.lineWidth = 2;
     ctx.fillStyle = '#222';
@@ -90,7 +114,7 @@ function dibujarSemaforo(ctx, x, y, data, vertical) {
     ctx.stroke();
 
     const colores = [
-        data.estado === 'ROJO' ? '#ff3333' : '#330000',
+        (parpadeando && mostrarRojo) || data.estado === 'ROJO' ? '#ff3333' : '#330000',
         data.estado === 'AMARILLO' ? '#ffcc00' : '#332200',
         data.estado === 'VERDE' ? '#33ff33' : '#003300'
     ];
@@ -102,9 +126,9 @@ function dibujarSemaforo(ctx, x, y, data, vertical) {
             ctx.arc(x, yy, RS - 2, 0, Math.PI * 2);
             ctx.fillStyle = colores[i];
             ctx.fill();
-            if (i === 0 && data.estado === 'ROJO' || i === 1 && data.estado === 'AMARILLO' || i === 2 && data.estado === 'VERDE') {
+            if (colores[i] !== '#330000' && colores[i] !== '#332200' && colores[i] !== '#003300') {
                 ctx.shadowColor = colores[i];
-                ctx.shadowBlur = 8;
+                ctx.shadowBlur = parpadeando ? 12 : 8;
                 ctx.fill();
                 ctx.shadowBlur = 0;
             }
@@ -116,9 +140,9 @@ function dibujarSemaforo(ctx, x, y, data, vertical) {
             ctx.arc(xx, y, RS - 2, 0, Math.PI * 2);
             ctx.fillStyle = colores[i];
             ctx.fill();
-            if (i === 0 && data.estado === 'ROJO' || i === 1 && data.estado === 'AMARILLO' || i === 2 && data.estado === 'VERDE') {
+            if (colores[i] !== '#330000' && colores[i] !== '#332200' && colores[i] !== '#003300') {
                 ctx.shadowColor = colores[i];
-                ctx.shadowBlur = 8;
+                ctx.shadowBlur = parpadeando ? 12 : 8;
                 ctx.fill();
                 ctx.shadowBlur = 0;
             }
@@ -193,6 +217,30 @@ function dibujarRotulos(ctx, items) {
     });
 }
 
+function dibujarBadgeInoperable(ctx, acceso) {
+    const badgePos = { N: { x: CX, y: 40 }, S: { x: CX, y: 570 }, E: { x: 560, y: CY + 20 }, W: { x: 40, y: CY + 20 } };
+    const p = badgePos[acceso];
+    if (!p) return;
+    ctx.fillStyle = '#ff6b6b';
+    ctx.font = 'bold 11px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillRect(p.x - 50, p.y - 8, 100, 16);
+    ctx.fillStyle = '#fff';
+    ctx.fillText('⛔ INUNDACIÓN', p.x, p.y + 4);
+}
+
+function dibujarBadgeEmergencia(ctx, acceso) {
+    const badgePos = { N: { x: CX, y: 55 }, S: { x: CX, y: 555 }, E: { x: 560, y: CY + 35 }, W: { x: 40, y: CY + 35 } };
+    const p = badgePos[acceso];
+    if (!p) return;
+    ctx.fillStyle = '#ff3333';
+    ctx.font = 'bold 11px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillRect(p.x - 50, p.y - 8, 100, 16);
+    ctx.fillStyle = '#fff';
+    ctx.fillText('🚨 EMERGENCIA', p.x, p.y + 4);
+}
+
 function dibujar4() {
     if (!estado4) return;
     const ctx = ctx4, d = estado4;
@@ -224,6 +272,12 @@ function dibujar4() {
     };
     for (const [a, p] of Object.entries(semPos)) {
         if (d.accesos[a]) dibujarSemaforo(ctx, p.x, p.y, d.accesos[a], p.v);
+    }
+
+    // Badges de estado
+    for (const [a, ad] of Object.entries(d.accesos)) {
+        if (ad.inoperable) dibujarBadgeInoperable(ctx, a);
+        if (ad.emergencia_activa) dibujarBadgeEmergencia(ctx, a);
     }
 
     dibujarRotulos(ctx, [
@@ -263,6 +317,11 @@ function dibujarT() {
     };
     for (const [a, p] of Object.entries(semPos)) {
         if (d.accesos[a]) dibujarSemaforo(ctx, p.x, p.y, d.accesos[a], p.v);
+    }
+
+    for (const [a, ad] of Object.entries(d.accesos)) {
+        if (ad.inoperable) dibujarBadgeInoperable(ctx, a);
+        if (ad.emergencia_activa) dibujarBadgeEmergencia(ctx, a);
     }
 
     dibujarRotulos(ctx, [
